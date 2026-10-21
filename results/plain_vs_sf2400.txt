@@ -1,0 +1,3 @@
+==============================================================================
+plain vs sf2400: 60 games  +45 =4 -11  score 78.3%  Elo +223.3  95% CI [+134.4, +350.0]  LOS 100.0%
+anomalies: crashes=0 time-forfeits=0 illegal=0  wall 421s

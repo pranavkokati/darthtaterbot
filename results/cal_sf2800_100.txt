@@ -1,0 +1,3 @@
+==============================================================================
+heretic vs sf2800: 100 games  +35 =23 -42  score 46.5%  Elo -24.4  95% CI [-85.6, +35.4]  LOS 21.3%
+anomalies: crashes=0 time-forfeits=0 illegal=0  wall 883s

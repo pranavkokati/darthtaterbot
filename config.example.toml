@@ -1,0 +1,19 @@
+# Copy to config.toml. Token is read from the env var named by token_env (never stored here).
+url = "https://lichess.org"
+token_env = "LICHESS_TOKEN"
+
+[engine]
+path = "./build/heretic"
+nnue = ""            # e.g. "nets/h1.nnue"
+[engine.options]
+Hash = 256
+Threads = 2
+"Move Overhead" = 200
+
+[games]
+max_concurrent = 1
+
+[challenge]
+variants = ["standard"]
+speeds = ["blitz", "rapid", "classical"]
+modes = ["casual", "rated"]

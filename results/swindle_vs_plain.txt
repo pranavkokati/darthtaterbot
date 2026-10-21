@@ -1,0 +1,3 @@
+==============================================================================
+swindle vs plain: 100 games  +1 =5 -94  score 3.5%  Elo -576.2  95% CI [-876.1, -467.2]  LOS 0.0%
+anomalies: crashes=0 time-forfeits=0 illegal=0  wall 780s

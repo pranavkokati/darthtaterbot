@@ -1,0 +1,3 @@
+==============================================================================
+policy_nodev vs plain: 40 games  +4 =10 -26  score 22.5%  Elo -214.8  95% CI [-343.9, -124.1]  LOS 0.0%
+anomalies: crashes=0 time-forfeits=0 illegal=0  wall 344s

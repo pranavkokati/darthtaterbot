@@ -1,0 +1,8 @@
+alphabeta    OK   29 positions x2 limits in 3.3s
+swindle      OK   29 positions x2 limits in 6.6s
+variety      OK   29 positions x2 limits in 3.2s
+mcts         OK   29 positions x2 limits in 3.4s
+threads2     OK   29 positions x2 limits in 3.5s
+swindle+var  OK   29 positions x2 limits in 3.6s
+clock test: 20 plies used 1.49s (white) / 1.14s (black) of 3s each
+UCI TEST PASS

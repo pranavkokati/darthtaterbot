@@ -1,0 +1,3 @@
+==============================================================================
+mcts vs alphabeta: 60 games  +0 =0 -60  score 0.0%  Elo -2400.0  95% CI [-2400.0, -2400.0]  LOS 0.0%
+anomalies: crashes=0 time-forfeits=0 illegal=0  wall 241s

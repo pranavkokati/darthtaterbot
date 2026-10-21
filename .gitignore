@@ -1,0 +1,17 @@
+build/
+build_*/
+*.o
+__pycache__/
+*.pyc
+results/*.pgn
+data/*.bin
+data/*.dat
+data/*.sfen
+*.nnue
+.venv/
+data/gen*.bin
+data/gen*.log
+data/experience.json
+config.toml
+__pycache__/
+dev/

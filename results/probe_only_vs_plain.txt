@@ -1,0 +1,3 @@
+==============================================================================
+probe_only vs plain: 40 games  +5 =18 -17  score 35.0%  Elo -107.5  95% CI [-195.6, -31.3]  LOS 0.5%
+anomalies: crashes=0 time-forfeits=0 illegal=0  wall 356s
