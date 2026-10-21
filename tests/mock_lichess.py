@@ -26,7 +26,7 @@ class G:
         self.id = gid
         self.board = chess.Board()
         self.moves = []
-        self.wtime = self.btime = 30000
+        self.wtime = self.btime = 60000
         self.inc = 0
         self.status = "started"
         self.cv = threading.Condition()

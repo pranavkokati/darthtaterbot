@@ -35,7 +35,7 @@ struct EngineOptions {
   int threads = 1;
   int multiPV = 1;
   int contempt = 0;       // centipawns; positive = avoid draws
-  int moveOverhead = 30;  // ms
+  int moveOverhead = 60;  // ms
   // ---- Heretic quirks (see docs/ALGORITHMS.md)
   bool quantalSwindle = false;   // bounded-rational opponent model at the root
   int opponentElo = 0;           // 0 = unknown; drives swindle temperature & dynamic contempt

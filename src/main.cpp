@@ -95,11 +95,11 @@ struct Uci {
     else if (name == "Threads") o.threads = std::max(1, std::min(64, toInt(1)));
     else if (name == "MultiPV") o.multiPV = std::max(1, std::min(64, toInt(1)));
     else if (name == "Contempt") o.contempt = toInt(0);
-    else if (name == "Move Overhead") o.moveOverhead = toInt(30);
+    else if (name == "Move Overhead") o.moveOverhead = toInt(60);
     else if (name == "QuantalSwindle") o.quantalSwindle = toBool();
     else if (name == "OpponentElo") o.opponentElo = toInt(0);
-    else if (name == "SwindleMaxLoss") o.swindleMaxLoss = toInt(30);
-    else if (name == "SwindleMinGain") o.swindleMinGain = toInt(30);
+    else if (name == "SwindleMaxLoss") o.swindleMaxLoss = toInt(60);
+    else if (name == "SwindleMinGain") o.swindleMinGain = toInt(60);
     else if (name == "OpponentTime") o.oppTimeMs = toInt(0);
     else if (name == "VarietyPlies") o.varietyPlies = toInt(0);
     else if (name == "VarietyMargin") o.varietyMargin = toInt(15);
@@ -140,7 +140,7 @@ struct Uci {
         printf("option name Threads type spin default 1 min 1 max 64\n");
         printf("option name MultiPV type spin default 1 min 1 max 64\n");
         printf("option name Contempt type spin default 0 min -200 max 200\n");
-        printf("option name Move Overhead type spin default 30 min 0 max 5000\n");
+        printf("option name Move Overhead type spin default 60 min 0 max 5000\n");
         printf("option name QuantalSwindle type check default false\n");
         printf("option name OpponentElo type spin default 0 min 0 max 3500\n");
         printf("option name OpponentTime type spin default 0 min 0 max 36000000\n");

@@ -8,7 +8,7 @@ nnue = ""            # e.g. "nets/h1.nnue"
 [engine.options]
 Hash = 256
 Threads = 2
-"Move Overhead" = 200
+"Move Overhead" = 100
 
 [games]
 max_concurrent = 1

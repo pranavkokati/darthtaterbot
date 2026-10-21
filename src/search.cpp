@@ -709,7 +709,9 @@ void Worker::iterate(const Position& root, const SearchLimits& lim) {
         if (rootDepth > 6 && cur < prevIterScore - 25) scale *= 1.25;
         if (rootMoves.size() == 1 && rootDepth >= 6) scale = 0.0;
         if (std::abs(cur) >= VALUE_MATE_IN_MAX_PLY && rootDepth >= 2 * (VALUE_MATE - std::abs(cur)) + 4) scale = 0.0;
-        if (double(elapsed) >= double(eng.optimumTime) * scale) eng.stopFlag = true;
+        scale = std::min(scale, 1.6);
+        // an iteration costs ~2x the previous one: do not begin one that cannot plausibly finish inside the budget
+        if (double(elapsed) >= double(eng.optimumTime) * scale || (scale <= 1.0 && double(elapsed) >= double(eng.optimumTime) * 0.55)) eng.stopFlag = true;
       }
       prevIterScore = cur;
     }
@@ -791,12 +793,18 @@ void Engine::run_search(SearchLimits lim) {
     timeManaged = true;
     int us = pos.side_to_move();
     int64_t myTime = lim.time[us], myInc = lim.inc[us];
-    int mtg = lim.movestogo ? std::min(lim.movestogo, 50) : 30;
+    // Bullet-aware allocation: ~1/mtg of the usable clock plus most of the increment, with hard fractions of the clock as
+    // caps, and a "hurry" regime when the clock is nearly gone. Think time scales DOWN with the clock, never up.
+    int mtg = lim.movestogo ? std::min(lim.movestogo, 50) : 45;
     int64_t avail = std::max<int64_t>(1, myTime - opt.moveOverhead);
-    double opt_ = double(avail) / mtg + double(myInc) * 0.75;
-    double max_ = std::min(double(avail) * 0.4, opt_ * 5.0);
+    double incPart = double(myInc) * 0.8;
+    double opt_ = double(avail) / mtg + incPart;
+    if (avail < 10000) opt_ = double(avail) / 55.0 + incPart * 0.9;       // hurry: < 10 s on the clock
+    if (avail < 3000)  opt_ = double(avail) / 70.0 + incPart * 0.8;       // panic: < 3 s
+    double cap = std::min(double(avail) * 0.18 + double(myInc) * 0.5, double(avail) * 0.5);
+    opt_ = std::min(opt_, std::max(cap, 1.0));
+    double max_ = std::min(double(avail) * 0.30, opt_ * 2.0);
     if (lim.movestogo == 1) opt_ = max_ = avail * 0.8;
-    opt_ = std::min(opt_, double(avail) * 0.5);
     optimumTime = std::max<int64_t>(2, int64_t(opt_));
     maximumTime = std::max<int64_t>(optimumTime, int64_t(max_));
     maximumTime = std::min<int64_t>(maximumTime, avail);

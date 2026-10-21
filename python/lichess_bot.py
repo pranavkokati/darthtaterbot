@@ -24,7 +24,7 @@ DEFAULT_CONFIG = {
     "token_env": "LICHESS_TOKEN",
     "engine": {
         "path": "./build/heretic",
-        "options": {"Hash": 128, "Threads": 1, "Move Overhead": 150, "Contempt": 0},
+        "options": {"Hash": 128, "Threads": 1, "Move Overhead": 100, "Contempt": 0},
         "nnue": "",                       # optional path to a .nnue file
     },
     "games": {"max_concurrent": 1, "greeting": "Heretic here (bitboards + NNUE + a few heresies). Good luck, have fun!",
@@ -114,6 +114,11 @@ class LichessAPI:
 
     def claim_victory(self, gid):
         return self._req("POST", f"/api/bot/game/{gid}/claim-victory")
+
+    def challenge(self, username, seconds, inc, rated=False, color="random"):
+        return self._req("POST", f"/api/challenge/{username}", data={
+            "rated": "true" if rated else "false", "clock.limit": seconds, "clock.increment": inc, "color": color,
+            "variant": "standard"})
 
     def chat(self, gid, text, room="player"):
         return self._req("POST", f"/api/bot/game/{gid}/chat", data={"room": room, "text": text})
@@ -274,30 +279,35 @@ class Game(threading.Thread):
         b = self.cfg["behaviour"]
         known = self.engine.options
         cfg = {}
-        opp_rating = self.opp.get("rating") or 0
+        opp_rating = self.opp.get("rating") or 0  # AI/anonymous opponents have no rating
         speed = self.speed
         my_rating = self.bot.my_ratings.get(speed) or 0
         if "OpponentElo" in known:
             cfg["OpponentElo"] = int(opp_rating)
         if "OpponentTime" in known:
-            cfg["OpponentTime"] = int(opp_clock_ms) if b["feed_opponent_clock"] and opp_clock_ms else 0
+            ok = b["feed_opponent_clock"] and opp_clock_ms and 0 < opp_clock_ms < 36_000_000  # unlimited games send ~2^31
+            cfg["OpponentTime"] = int(opp_clock_ms) if ok else 0
         if "QuantalSwindle" in known:
             # the quantal-response model assumes a fallible opponent: never use it against other engines
             cfg["QuantalSwindle"] = bool(b["quantal_swindle"]) and self.opp.get("title") != "BOT"
         if b["dynamic_contempt"] and "Contempt" in known and opp_rating and my_rating:
             gap = my_rating - opp_rating
             cfg["Contempt"] = int(max(-20, min(60, gap / 8)))
-        if cfg:
-            self.engine.configure(cfg)
+        for k, v in cfg.items():  # never let an opponent-modelling option kill the game
+            try:
+                self.engine.configure({k: v})
+            except Exception as e:
+                log.warning("could not set %s=%s: %s", k, v, e)
 
     def choose_move(self, wtime, btime, winc, binc, ply):
         us = self.color
         opp_clock = btime if us == chess.WHITE else wtime
         self.tune_for_opponent(opp_clock)
-        lim = chess.engine.Limit(white_clock=wtime / 1000, black_clock=btime / 1000,
-                                 white_inc=winc / 1000, black_inc=binc / 1000)
-        if wtime is None or btime is None:
+        if wtime is None or btime is None or min(wtime, btime) > 36_000_000:  # unlimited / correspondence
             lim = chess.engine.Limit(time=self.cfg["games"]["default_correspondence_ms"] / 1000)
+        else:
+            lim = chess.engine.Limit(white_clock=wtime / 1000, black_clock=btime / 1000,
+                                     white_inc=(winc or 0) / 1000, black_inc=(binc or 0) / 1000)
         res = self.engine.play(self.board, lim, info=chess.engine.INFO_SCORE)
         move = res.move
         sc = res.info.get("score")
@@ -311,7 +321,7 @@ class Game(threading.Thread):
             if move.uci() in bad:
                 alts = [m for m in self.board.legal_moves if m.uci() not in bad]
                 if alts:
-                    remain = (wtime if us == chess.WHITE else btime) / 1000
+                    remain = min((wtime if us == chess.WHITE else btime) or 60000, 600000) / 1000
                     t = max(0.05, min(remain / 30, 3.0))
                     res2 = self.engine.play(self.board, chess.engine.Limit(time=t), root_moves=alts,
                                             info=chess.engine.INFO_SCORE)
@@ -349,10 +359,16 @@ class Game(threading.Thread):
             t0 = time.time()
             try:
                 move = self.choose_move(st.get("wtime"), st.get("btime"), st.get("winc", 0), st.get("binc", 0), len(moves))
-            except (chess.engine.EngineTerminatedError, chess.engine.EngineError) as e:
-                log.error("engine failure in %s: %s", self.gid, e)
-                self.api.resign(self.gid)
-                return True
+            except Exception as e:
+                # Never forfeit on a bridge bug: fall back to a fast engine move, then to any legal move.
+                log.exception("choose_move failed in %s (%s); falling back", self.gid, e)
+                move = None
+                try:
+                    move = self.engine.play(self.board, chess.engine.Limit(time=0.1)).move
+                except Exception:
+                    log.error("fallback engine search failed too; playing first legal move")
+                if move is None:
+                    move = next(iter(self.board.legal_moves))
             resign_thr = self.cfg["behaviour"]["resign_below_cp"]
             if self.last_score is not None and self.last_score <= resign_thr and len(moves) > 40:
                 log.info("resigning (score %s)", self.last_score)
@@ -362,7 +378,8 @@ class Game(threading.Thread):
             if r is None or r.status_code != 200:
                 log.error("move %s rejected: %s", move.uci(), r.text[:200] if r is not None else "no response")
             else:
-                log.debug("played %s in %.2fs (score %s)", move.uci(), time.time() - t0, self.last_score)
+                log.info("%s: played %s in %.2fs (score %s, clocks w=%s b=%s)", self.gid, move.uci(), time.time() - t0,
+                         self.last_score, st.get("wtime"), st.get("btime"))
         return False
 
     def finish(self, st):
@@ -435,6 +452,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default="config.toml")
     ap.add_argument("--upgrade", action="store_true", help="IRREVERSIBLY upgrade this account to a BOT account")
+    ap.add_argument("--challenge", metavar="USER", action="append", default=[],
+                    help="challenge this user on startup (repeatable; needs the challenge:write scope)")
+    ap.add_argument("--time", type=int, default=180, help="initial seconds for --challenge")
+    ap.add_argument("--inc", type=int, default=2, help="increment seconds for --challenge")
+    ap.add_argument("--rated", action="store_true", help="make --challenge games rated")
     ap.add_argument("--check", action="store_true", help="verify token/account and exit")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
@@ -466,6 +488,9 @@ def main():
     if a.check:
         return
     bot = Bot(cfg, api, me)
+    for u in a.challenge:
+        r = api.challenge(u, a.time, a.inc, a.rated)
+        log.info("challenge %s -> HTTP %s %s", u, r.status_code if r is not None else "-", (r.text[:150] if r is not None else ""))
     signal.signal(signal.SIGINT, lambda *_: bot.stop.set())
     signal.signal(signal.SIGTERM, lambda *_: bot.stop.set())
     bot.run()
