@@ -795,15 +795,18 @@ void Engine::run_search(SearchLimits lim) {
     int64_t myTime = lim.time[us], myInc = lim.inc[us];
     // Bullet-aware allocation: ~1/mtg of the usable clock plus most of the increment, with hard fractions of the clock as
     // caps, and a "hurry" regime when the clock is nearly gone. Think time scales DOWN with the clock, never up.
-    int mtg = lim.movestogo ? std::min(lim.movestogo, 50) : 45;
+    int fullmove = pos.game_ply() / 2;
+    int mtg = lim.movestogo ? std::min(lim.movestogo, 50)
+                            : std::max(opt.timeMtgFloor, opt.timeMtgBase - fullmove * opt.timeMtgDecay / 100);
     int64_t avail = std::max<int64_t>(1, myTime - opt.moveOverhead);
-    double incPart = double(myInc) * 0.8;
+    double incPart = double(myInc) * opt.timeIncPct / 100.0;
     double opt_ = double(avail) / mtg + incPart;
-    if (avail < 10000) opt_ = double(avail) / 55.0 + incPart * 0.9;       // hurry: < 10 s on the clock
-    if (avail < 3000)  opt_ = double(avail) / 70.0 + incPart * 0.8;       // panic: < 3 s
-    double cap = std::min(double(avail) * 0.18 + double(myInc) * 0.5, double(avail) * 0.5);
-    opt_ = std::min(opt_, std::max(cap, 1.0));
-    double max_ = std::min(double(avail) * 0.30, opt_ * 2.0);
+    // Scarce clock: measured in units of our own lag. Once the usable clock holds fewer than ~150 lag-lengths, thinking time
+    // shrinks smoothly toward 35 %, so a single network hiccup can never flag us (no fixed seconds anywhere).
+    double lagUnits = double(avail) / (150.0 * std::max<int64_t>(10, opt.moveOverhead));
+    if (lagUnits < 1.0) opt_ *= std::max(0.35, lagUnits);
+    opt_ = std::min(opt_, double(avail) * 0.5);
+    double max_ = std::min(double(avail) * opt.timeMaxPct / 100.0, opt_ * 2.0);
     if (lim.movestogo == 1) opt_ = max_ = avail * 0.8;
     optimumTime = std::max<int64_t>(2, int64_t(opt_));
     maximumTime = std::max<int64_t>(optimumTime, int64_t(max_));

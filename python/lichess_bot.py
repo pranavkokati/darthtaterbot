@@ -257,6 +257,8 @@ class Game(threading.Thread):
         self.engine = None
         self.opp = {}
         self.last_len = -1
+        self.lag_samples = []
+        self.rtt_probe_ms = None
         self.last_score = None
         self.exp_items = []
         self.finished = False
@@ -266,6 +268,12 @@ class Game(threading.Thread):
     def open_engine(self):
         e = self.cfg["engine"]
         self.engine = chess.engine.SimpleEngine.popen_uci(e["path"], timeout=60)
+        try:  # one cheap round-trip probe so the very first move already uses a measured overhead
+            t0 = time.time()
+            self.api.account()
+            self.rtt_probe_ms = (time.time() - t0) * 1000.0
+        except Exception:
+            pass
         opts = dict(e["options"])
         if e.get("nnue"):
             opts["NNUEFile"] = e["nnue"]
@@ -299,8 +307,23 @@ class Game(threading.Thread):
             except Exception as e:
                 log.warning("could not set %s=%s: %s", k, v, e)
 
+    def measured_overhead_ms(self):
+        """Move Overhead from *measured* round-trips (recent max blended with the mean, +30 % margin), never a constant."""
+        if not self.lag_samples:
+            return None
+        mean = sum(self.lag_samples) / len(self.lag_samples)
+        return int(max(15, min(2000, 1.3 * (0.5 * max(self.lag_samples) + 0.5 * mean))))
+
     def choose_move(self, wtime, btime, winc, binc, ply):
         us = self.color
+        oh = self.measured_overhead_ms()
+        if oh is None and self.rtt_probe_ms is not None:
+            oh = int(max(15, 1.5 * self.rtt_probe_ms))
+        if oh is not None and not self.cfg["games"].get("fixed_overhead"):
+            try:
+                self.engine.configure({"Move Overhead": oh})
+            except Exception as e:
+                log.warning("could not set Move Overhead: %s", e)
         opp_clock = btime if us == chess.WHITE else wtime
         self.tune_for_opponent(opp_clock)
         if wtime is None or btime is None or min(wtime, btime) > 36_000_000:  # unlimited / correspondence
@@ -374,7 +397,10 @@ class Game(threading.Thread):
                 log.info("resigning (score %s)", self.last_score)
                 self.api.resign(self.gid)
                 return True
+            t_post = time.time()
             r = self.api.move(self.gid, move.uci())
+            self.lag_samples.append((time.time() - t_post) * 1000.0)
+            self.lag_samples = self.lag_samples[-8:]
             if r is None or r.status_code != 200:
                 log.error("move %s rejected: %s", move.uci(), r.text[:200] if r is not None else "no response")
             else:

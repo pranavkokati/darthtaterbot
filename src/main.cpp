@@ -96,6 +96,11 @@ struct Uci {
     else if (name == "MultiPV") o.multiPV = std::max(1, std::min(64, toInt(1)));
     else if (name == "Contempt") o.contempt = toInt(0);
     else if (name == "Move Overhead") o.moveOverhead = toInt(60);
+    else if (name == "TimeMtgBase") o.timeMtgBase = std::max(5, std::min(200, toInt(45)));
+    else if (name == "TimeMtgDecay") o.timeMtgDecay = std::max(0, std::min(200, toInt(50)));
+    else if (name == "TimeMtgFloor") o.timeMtgFloor = std::max(2, std::min(100, toInt(16)));
+    else if (name == "TimeIncPct") o.timeIncPct = std::max(0, std::min(200, toInt(80)));
+    else if (name == "TimeMaxPct") o.timeMaxPct = std::max(5, std::min(90, toInt(30)));
     else if (name == "QuantalSwindle") o.quantalSwindle = toBool();
     else if (name == "OpponentElo") o.opponentElo = toInt(0);
     else if (name == "SwindleMaxLoss") o.swindleMaxLoss = toInt(60);
@@ -141,6 +146,11 @@ struct Uci {
         printf("option name MultiPV type spin default 1 min 1 max 64\n");
         printf("option name Contempt type spin default 0 min -200 max 200\n");
         printf("option name Move Overhead type spin default 60 min 0 max 5000\n");
+        printf("option name TimeMtgBase type spin default 45 min 5 max 200\n");
+        printf("option name TimeMtgDecay type spin default 50 min 0 max 200\n");
+        printf("option name TimeMtgFloor type spin default 16 min 2 max 100\n");
+        printf("option name TimeIncPct type spin default 80 min 0 max 200\n");
+        printf("option name TimeMaxPct type spin default 30 min 5 max 90\n");
         printf("option name QuantalSwindle type check default false\n");
         printf("option name OpponentElo type spin default 0 min 0 max 3500\n");
         printf("option name OpponentTime type spin default 0 min 0 max 36000000\n");

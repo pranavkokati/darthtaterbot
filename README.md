@@ -80,16 +80,22 @@ Lichess-hosted bot would use.
 
 ## Bullet play and challenging opponents
 
-Time management is bullet-aware (`Engine::run_search`): about 1/45 of the usable clock plus 0.8×increment per move, a
-"hurry" regime under 10 s and a "panic" regime under 3 s, hard caps of 30 % of the clock per move, and no new iteration
-started once 55 % of the budget is spent. Measured with 2 threads: ~1.0–1.4 s/move at 1+0, ~1.2–1.6 s at 1+1, ~6–8 s at 5+3,
-~0.1 s with 10 s left; a 12-game 15+0.2 check had 0 time forfeits. Set `"Move Overhead"` in `config.toml` to your network
-latency (default 100 ms).
+Nothing about timing is a fixed number of seconds. The bridge measures the real round-trip of every move it posts and sets
+`Move Overhead` from it (recent max blended with the mean, +30 %); the engine budgets from the remaining clock, the
+increment, and an expected-moves-to-go that shrinks as the game proceeds, and it thins its thinking smoothly once the clock
+holds fewer than ~150 lag-lengths. The shape of the curve is controlled by UCI options (`TimeMtgBase`, `TimeMtgDecay`,
+`TimeMtgFloor`, `TimeIncPct`, `TimeMaxPct`) that are calibrated by self-play. **Run the bot on the machine with the best
+connection to Lichess (your laptop), not in a proxied cloud sandbox** — every extra 100 ms of lag is a large fraction of a
+bullet move. `scripts/run_bot.sh` restarts the bot automatically if the network drops.
 
 ```
-export LICHESS_TOKEN=lip_...   # scopes: bot:play, challenge:read, challenge:write
+export LICHESS_TOKEN=lip_...   # then: scripts/run_bot.sh   (scopes: bot:play, challenge:read, challenge:write)
 python3 python/lichess_bot.py --challenge SomeUser --time 60 --inc 0       # 1+0, casual
 python3 python/lichess_bot.py --challenge SomeUser --time 120 --inc 1 --rated
 ```
 
 Status: the Lichess bridge is verified against a mock server and a few live games; long-run live behaviour is still being validated.
+
+Time-knob calibration (self-play, 10+0.1, 30 games each, same binary, 2 threads): `TimeMtgBase=30` scored 36.7 % against 45
+(−95 Elo, CI −187…−14); `TimeMtgBase=65` scored 40.0 % against 45 (−70 Elo, CI −169…+18). Both directions lose to the default
+of 45, so it is kept. These samples are small; treat them as a sanity check, not a tuned optimum.

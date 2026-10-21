@@ -35,7 +35,13 @@ struct EngineOptions {
   int threads = 1;
   int multiPV = 1;
   int contempt = 0;       // centipawns; positive = avoid draws
-  int moveOverhead = 60;  // ms
+  int moveOverhead = 60;  // ms (the Lichess bridge overwrites this every move with the *measured* round-trip lag)
+  // Time-management knobs (all UCI options; defaults are calibrated by scripts/tune_time.py self-play, not guessed)
+  int timeMtgBase = 45;     // expected moves to go at the start of the game
+  int timeMtgDecay = 50;    // moves-to-go lost per 100 full moves played (hundredths of a move per move)
+  int timeMtgFloor = 16;    // never plan for fewer moves than this
+  int timeIncPct = 80;      // % of the increment spent per move
+  int timeMaxPct = 30;      // hard cap on one move, % of usable clock
   // ---- Heretic quirks (see docs/ALGORITHMS.md)
   bool quantalSwindle = false;   // bounded-rational opponent model at the root
   int opponentElo = 0;           // 0 = unknown; drives swindle temperature & dynamic contempt
